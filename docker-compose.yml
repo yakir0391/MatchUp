@@ -1,6 +1,5 @@
 version: "3.9"
 services:
-  # ==== Discovery Service ====
   discovery-service:
     build: ./MatchUp_discovery_service
     container_name: discovery-service
@@ -9,7 +8,6 @@ services:
     networks:
       - matchup-net
 
-  # ==== API Gateway ====
   api-gateway:
     build: ./Api_Gateway
     container_name: api-gateway
@@ -22,7 +20,6 @@ services:
     networks:
       - matchup-net
 
-  # ==== PostgreSQL for Users ====
   postgres-users:
     image: postgres:16
     container_name: postgres-users
@@ -37,7 +34,6 @@ services:
     volumes:
       - users_data:/var/lib/postgresql/data
 
-  # ==== PostgreSQL for Events ====
   postgres-events:
     image: postgres:16
     container_name: postgres-events
@@ -52,7 +48,6 @@ services:
     volumes:
       - events_data:/var/lib/postgresql/data
 
-  # ==== Kafka (KRaft mode – no Zookeeper) ====
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
@@ -84,7 +79,6 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
 
-  # ==== Auth Service ====
   auth-service:
     build: ./MatchUp_auth
     container_name: auth-service
@@ -103,7 +97,6 @@ services:
     networks:
       - matchup-net
 
-  # ==== Event Service ====
   event-service:
     build: ./MatchUp_Event
     container_name: event-service
@@ -122,7 +115,6 @@ services:
     networks:
       - matchup-net
 
-  # ==== Frontend (React) ====
   frontend:
     build: ./matchup_front
     container_name: matchup-frontend
@@ -131,11 +123,9 @@ services:
     networks:
       - matchup-net
 
-# ==== Networks ====
 networks:
   matchup-net:
 
-# ==== Volumes ====
 volumes:
   users_data:
   events_data:
