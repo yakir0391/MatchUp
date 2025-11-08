@@ -1,0 +1,142 @@
+version: "3.9"
+services:
+  # ==== Discovery Service ====
+  discovery-service:
+    build: ./MatchUp_discovery_service
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    networks:
+      - matchup-net
+
+  # ==== API Gateway ====
+  api-gateway:
+    build: ./Api_Gateway
+    container_name: api-gateway
+    depends_on:
+      - discovery-service
+    ports:
+      - "8765:8765"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka
+    networks:
+      - matchup-net
+
+  # ==== PostgreSQL for Users ====
+  postgres-users:
+    image: postgres:16
+    container_name: postgres-users
+    environment:
+      POSTGRES_DB: {DB_NAME_USER}
+      POSTGRES_USER: {DB_USER}
+      POSTGRES_PASSWORD: {DB_PASSWORD}
+    ports:
+      - "5433:5432"
+    networks:
+      - matchup-net
+    volumes:
+      - users_data:/var/lib/postgresql/data
+
+  # ==== PostgreSQL for Events ====
+  postgres-events:
+    image: postgres:16
+    container_name: postgres-events
+    environment:
+      POSTGRES_DB: {DB_NAME_EVENT}
+      POSTGRES_USER: {DB_USER}
+      POSTGRES_PASSWORD: {DB_PASSWORD}
+    ports:
+      - "5434:5432"
+    networks:
+      - matchup-net
+    volumes:
+      - events_data:/var/lib/postgresql/data
+
+  # ==== Kafka (KRaft mode – no Zookeeper) ====
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    ports:
+      - "9092:9092"  
+      - "29092:29092" 
+    environment:
+      
+      - KAFKA_ZOOKEEPER_CONNECT=127.0.0.1:2181 
+      - KAFKA_ADVERTISED_LISTENERS=internal://kafka:9092 
+      
+  
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+
+      - KAFKA_CFG_LISTENERS=INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      
+
+      - KAFKA_CFG_LOG_DIRS=/var/lib/kafka/data
+    networks:
+      - matchup-net
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  # ==== Auth Service ====
+  auth-service:
+    build: ./MatchUp_auth
+    container_name: auth-service
+    depends_on:
+      - postgres-users
+      - kafka
+      - discovery-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATASOURCE_URL={URL_USERS}
+      - SPRING_DATASOURCE_USERNAME={DB_USER}
+      - SPRING_DATASOURCE_PASSWORD={DB_PASSWORD}
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka
+    networks:
+      - matchup-net
+
+  # ==== Event Service ====
+  event-service:
+    build: ./MatchUp_Event
+    container_name: event-service
+    depends_on:
+      - postgres-events
+      - kafka
+      - discovery-service
+    ports:
+      - "8090:8090"
+    environment:
+      - SPRING_DATASOURCE_URL={URL_EVENT}
+      - SPRING_DATASOURCE_USERNAME={DB_USER}
+      - SPRING_DATASOURCE_PASSWORD={DB_PASSWORD}
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka
+    networks:
+      - matchup-net
+
+  # ==== Frontend (React) ====
+  frontend:
+    build: ./matchup_front
+    container_name: matchup-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - matchup-net
+
+# ==== Networks ====
+networks:
+  matchup-net:
+
+# ==== Volumes ====
+volumes:
+  users_data:
+  events_data:
+  kafka_data:
